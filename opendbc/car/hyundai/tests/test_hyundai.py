@@ -2,7 +2,7 @@ import unittest
 
 from opendbc.car import gen_empty_fingerprint
 from opendbc.car.structs import CarParams
-from opendbc.car.fw_versions import build_fw_dict
+from opendbc.car.fw_versions import build_fw_dict, match_fw_to_car
 from opendbc.car.hyundai.interface import CarInterface
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.radar_interface import RADAR_START_ADDR
@@ -58,6 +58,19 @@ def cars_with(flags):
 
 
 class TestHyundaiFingerprint(unittest.TestCase):
+  def test_sorento_2024_taiwan_hybrid_fw(self):
+    camera_fw = b'\xf1\x00MQ4HMFC  AT EUR LHD 1.01 1.05 99210-P2500 240701'
+    for version, expected in ((camera_fw, {CAR.KIA_SORENTO_2024}), (b'unknown-camera', set())):
+      with self.subTest(camera_fw=version):
+        fw = [
+          CarParams.CarFw(ecu=Ecu.fwdCamera, address=0x7c4, brand="hyundai", fwVersion=version),
+          CarParams.CarFw(ecu=Ecu.fwdRadar, address=0x7d0, brand="hyundai",
+                          fwVersion=b'\xf1\x00MQ4_ RDR -----      1.00 1.01 99110-P2500         '),
+        ]
+        exact, candidates = match_fw_to_car(fw, "", allow_fuzzy=False, log=False)
+        self.assertTrue(exact)
+        self.assertEqual(candidates, expected)
+
   def test_feature_detection(self):
     # LKA steering
     for lka_steering in (True, False):
